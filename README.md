@@ -25,7 +25,7 @@ A interactive web-based cryptocurrency dashboard that allows users to explore re
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/crypto-dash.git
-cd crypto-dash
+cd crypto-dash```
 
 Future Improvements
 - Backend API with Node/Express
