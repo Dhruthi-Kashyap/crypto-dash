@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crypto Dash</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      transition: background 0.3s, color 0.3s;
+    }
+    :root {
+      --bg: #111;
+      --card-bg: #1d1d1d;
+      --text: #f0f0f0;
+      --highlight: orange;
+      --toast-bg: #333;
+    }
+    body.light {
+      --bg: #f2f2f2;
+      --card-bg: #fff;
+      --text: #111;
+      --toast-bg: #ddd;
+    }
+
+    header {
+      background: var(--card-bg);
+      color: var(--text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky; top: 0; z-index: 100;
+    }
+    header h1 { margin: 0; font-size: 1.5rem; }
+    header .top-controls {
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .top-controls input {
+      padding: 0.3rem 0.5rem;
+      border: none; border-radius: 4px;
+      width: 160px;
+    }
+    .toggle-btn {
+      padding: 0.4rem 0.8rem;
+      background: var(--highlight);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .coin-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill,minmax(220px,1fr));
+      gap: 1rem;
+      padding: 1rem;
+    }
+    .coin-card {
+      background: var(--card-bg);
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s;
+      position: relative;
+    }
+    .coin-card:hover { transform: scale(1.03); }
+
+    .coin-card img { width: 40px; height: 40px; }
+    .price-change { font-weight: bold; }
+
+ 
+    .modal {
+      display: none; position: fixed; top:0; left:0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      justify-content: center; align-items: center; z-index: 999;
+    }
+    .modal-content {
+      background: var(--card-bg);
+      color: var(--text);
+      padding: 2rem;
+      max-width: 500px;
+      border-radius: 10px;
+      position: relative;
+      text-align: left;
+    }
+    .close-btn {
+      position: absolute; top: 10px; right: 15px;
+      font-size: 1.2rem; cursor: pointer;
+    }
+    .btns {
+      display: flex; gap: 0.5rem; margin-top: 1rem;
+    }
+    .btns button {
+      background: var(--highlight);
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 40px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--toast-bg);
+      color: var(--text);
+      padding: 1rem 1.5rem;
+      border-radius: 999px;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      animation: fade-in 0.5s ease-out;
+    }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translate(-50%, 20px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    /* Scroll-top */
+    #scrollTopBtn {
+      position: fixed;
+      bottom: 20px; right: 20px;
+      background: var(--highlight);
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      display: none;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Cryptos</h1>
+  <div class="top-controls">
+    <input type="text" placeholder="Search coins..." id="searchInput">
+    <button class="toggle-btn" id="themeToggle">🌙</button>
+    <button class="toggle-btn" id="viewWatchlist">⭐ Watchlist</button>
+    <button class="toggle-btn" id="viewPortfolio">💼 Portfolio</button>
+  </div>
+</header>
+
+<div class="coin-container" id="coinContainer"></div>
+
+<!-- Modal -->
+<div class="modal" id="coinModal">
+  <div class="modal-content">
+    <span class="close-btn" id="closeModal">&times;</span>
+    <h2 id="modalTitle"></h2>
+    <img id="modalImage" width="40">
+    <p><strong>Price:</strong> $<span id="modalPrice"></span></p>
+    <p><strong>Market Cap:</strong> $<span id="modalCap"></span></p>
+    <p><strong>24h Volume:</strong> $<span id="modalVolume"></span></p>
+    <p id="modalDesc" style="margin-top:1rem;"></p>
+    <div class="btns">
+      <button id="addWatchlist">⭐ Add</button>
+      <button id="addPortfolio">💼 Add</button>
+    </div>
+    <div id="portfolioInput" style="margin-top:10px; display:none;">
+      Qty:<input type="number" id="qty" min="0.01" step="0.01" style="width:60px;">
+      Buy at:<input type="number" id="buy" min="0.01" step="0.01" style="width:80px;">
+      <button id="savePortfolioBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<button id="scrollTopBtn">↑</button>
+
+<script>
+  const coinContainer = document.getElementById('coinContainer');
+  const searchInput = document.getElementById('searchInput');
+  const themeToggle = document.getElementById('themeToggle');
+  const viewWatchlist = document.getElementById('viewWatchlist');
+  const viewPortfolio = document.getElementById('viewPortfolio');
+  const modal = document.getElementById('coinModal');
+  const closeModal = document.getElementById('closeModal');
+  const toast = document.getElementById('toast');
+  const scrollTopBtn = document.getElementById('scrollTopBtn');
+
+  let coins = [], filteredCoins = [];
+  let currentCoin = null;
+
+  // Dark Mode
+  const isDark = localStorage.getItem('theme') !== 'light';
+  if(!isDark) document.body.classList.add('light');
+  themeToggle.textContent = isDark ? '🌙' : '☀️';
+  themeToggle.onclick = () => {
+    document.body.classList.toggle('light');
+    const t = document.body.classList.contains('light') ? 'light' : 'dark';
+    localStorage.setItem('theme', t);
+    themeToggle.textContent = t === 'light' ? '☀️' : '🌙';
+  };
+
+  // Fetch & render
+  async function loadCoins(){
+    const res = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd');
+    coins = await res.json(); filteredCoins = coins;
+    renderCoins(coins);
+  }
+
+  function renderCoins(list){
+    coinContainer.innerHTML = '';
+    list.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'coin-card';
+      card.innerHTML = `
+        <img src="${c.image}">
+        <h3>${c.name} (${c.symbol.toUpperCase()})</h3>
+        <p>Price: $${c.current_price}</p>
+        <p class="price-change" style="color:${c.price_change_percentage_24h>=0? 'lightgreen':'tomato'};">
+          ${c.price_change_percentage_24h.toFixed(2)}%
+        </p>`;
+      card.onclick = ()=> openCoinDetail(c.id);
+      coinContainer.append(card);
+    });
+  }
+
+  searchInput.onkeyup = () => {
+    const q = searchInput.value.toLowerCase();
+    filteredCoins = coins.filter(c => 
+      c.name.toLowerCase().includes(q) ||
+      c.symbol.toLowerCase().includes(q)
+    );
+    renderCoins(filteredCoins);
+  };
+
+  async function openCoinDetail(id){
+    const res = await fetch(`https://api.coingecko.com/api/v3/coins/${id}`);
+    const data = await res.json();
+    currentCoin = data;
+    document.getElementById('modalTitle').innerText = data.name;
+    document.getElementById('modalImage').src = data.image.small;
+    document.getElementById('modalPrice').innerText = data.market_data.current_price.usd;
+    document.getElementById('modalCap').innerText = data.market_data.market_cap.usd.toLocaleString();
+    document.getElementById('modalVolume').innerText = data.market_data.total_volume.usd.toLocaleString();
+    document.getElementById('modalDesc').innerText = data.description.en.split('. ')[0]+'.';
+    document.getElementById('portfolioInput').style.display = 'none';
+    modal.style.display = 'flex';
+  }
+
+  closeModal.onclick = () => modal.style.display = 'none';
+  window.onclick = e => e.target===modal && (modal.style.display='none');
+
+  function showToast(msg){
+    toast.innerText = msg;
+    toast.style.display = 'flex';
+    setTimeout(()=> toast.style.display='none', 2000);
+  }
+
+  document.getElementById('addWatchlist').onclick = ()=>{
+    const list = JSON.parse(localStorage.getItem('watchlist')||'[]');
+    if(!list.includes(currentCoin.id)){
+      list.push(currentCoin.id);
+      localStorage.setItem('watchlist', JSON.stringify(list));
+      showToast('⭐ Added to Watchlist');
+    }
+  };
+
+  document.getElementById('addPortfolio').onclick = ()=>{
+    document.getElementById('portfolioInput').style.display = 'block';
+  };
+
+  document.getElementById('savePortfolioBtn').onclick = ()=>{
+    const qty = parseFloat(document.getElementById('qty').value);
+    const buy = parseFloat(document.getElementById('buy').value);
+    if(!qty||!buy) return showToast('Enter valid values');
+    const pf = JSON.parse(localStorage.getItem('portfolio')||'[]');
+    pf.push({ id: currentCoin.id, qty, buy });
+    localStorage.setItem('portfolio', JSON.stringify(pf));
+    showToast('💼 Added to Portfolio');
+    modal.style.display='none';
+  };
+
+  viewWatchlist.onclick = () => displaySaved('watchlist','⭐ Watchlist');
+  viewPortfolio.onclick = () => displaySaved('portfolio','💼 Portfolio');
+
+  function displaySaved(key,label){
+    const data = JSON.parse(localStorage.getItem(key)||'[]');
+    if(!data.length) return showToast(`${label} is empty`);
+    let html = `<h2>${label} (${data.length})</h2>`;
+    if(key==='watchlist'){
+      html += data.join(', ');
+    } else {
+      html += data.map(d=>`${d.id} - ${d.qty}@${d.buy}`).join('<br>');
+    }
+    coinContainer.innerHTML = html;
+  }
+
+  window.addEventListener('scroll', ()=>{
+    scrollTopBtn.style.display = window.scrollY > 300 ? 'block' : 'none';
+  });
+  scrollTopBtn.onclick = ()=> window.scrollTo({ top:0, behavior:'smooth' });
+
+  loadCoins();
+</script>
+</body>
+</html>
